@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
-import time
 import json
 import os
 
@@ -19,26 +18,21 @@ def save_movies(movies):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(movies, f, ensure_ascii=False, indent=4)
 
-# --- 2. محرك سيما لايت (CimaLight Engine) ---
-def scrape_cimalight():
-    # الرابط المباشر لأحدث الأفلام في سيما لايت
-    url = "https://cimalight.io/category/%d8%a7%d9%81%d9%84%d8%a7%d9%85-%d8%b9%d8%b1%d8%a8%d9%8a%d8%a9-arabic-movies/"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-    }
+# --- 2. المحرك العالمي (Multi-Source Scraper) ---
+def scrape_movies():
+    # الرابط ده هو الأضمن حالياً لنسخة وي سيما البديلة
+    url = "https://mycima.tube/category/%d8%a7%d9%81%d9%84%d8%a7%d9%85-%d8%b9%d8%b1%d8%a8%d9%8a%d8%a9/"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'}
     
     try:
         response = requests.get(url, headers=headers, timeout=20)
-        if response.status_code != 200:
-            return f"سيما لايت رفض الدخول، كود: {response.status_code}"
-            
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # في سيما لايت، الأفلام بتكون غالباً في كلاس اسمه 'BoxItem' أو 'MovieBox'
-        items = soup.find_all('div', class_='BoxItem') or soup.select('.MovieBox') or soup.select('.GridItem')
+        # بنور على كروت الأفلام بشكل عام
+        items = soup.select('.GridItem') or soup.select('.MovieBox') or soup.find_all('div', class_='BoxItem')
         
         if not items:
-            return "الموقع فتح بس مفيش أفلام. ممكن الرابط اتغير."
+            return "الموقع فتح بس مفيش أفلام.. محتاجين نحدث الرابط."
 
         current_movies = load_movies()
         existing_titles = [m['title'] for m in current_movies]
@@ -46,12 +40,9 @@ def scrape_cimalight():
 
         for item in items:
             try:
-                # سحب العنوان والرابط
-                title_tag = item.find('h2') or item.find('h3')
-                title = title_tag.text.strip()
+                title = item.find('strong').text.strip() if item.find('strong') else item.find('h2').text.strip()
                 link = item.find('a')['href']
                 
-                # سحب البوستر
                 img = item.find('img')
                 poster = img.get('data-src') or img.get('src')
                 
@@ -63,21 +54,21 @@ def scrape_cimalight():
         save_movies(current_movies)
         return new_count
     except Exception as e:
-        return f"خطأ تقني: {str(e)}"
+        return f"خطأ: الموقع محجوب أو الرابط اتغير ({str(e)})"
 
 # --- 3. واجهة المستخدم ---
 st.set_page_config(page_title="Salma Flix", layout="wide")
-st.markdown("<h1 style='text-align: center; color: #00C853;'>🎬 SALMA FLIX (CimaLight)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #E50914;'>🎬 SALMA FLIX</h1>", unsafe_allow_html=True)
 
 search_query = st.text_input("🔍 ابحثي عن فيلم يا ماما...", placeholder="اكتبي اسم الفيلم هنا")
 
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("تحديث الأفلام من CimaLight 🚀"):
-        with st.spinner("جاري جلب الأفلام..."):
-            result = scrape_cimalight()
+    if st.button("تحديث الأفلام 🚀"):
+        with st.spinner("جاري المحاولة من رابط جديد..."):
+            result = scrape_movies()
             if isinstance(result, int):
-                st.success(f"مبروك! أضفنا {result} فيلم جديد.")
+                st.success(f"مبروك! أضفنا {result} فيلم.")
                 st.rerun()
             else:
                 st.error(result)
@@ -95,9 +86,8 @@ if movies:
     cols = st.columns(4)
     for idx, m in enumerate(reversed(movies)):
         with cols[idx % 4]:
-            if m['poster']:
-                st.image(m['poster'], use_container_width=True)
+            st.image(m['poster'], use_container_width=True)
             st.write(f"**{m['title']}**")
             st.link_button("مشاهدة 🍿", m['url'])
 else:
-    st.info("الموقع لسه فاضي. دوسي 'تحديث' عشان نسحب من سيما لايت!")
+    st.info("دوسي 'تحديث' عشان نسحب الأفلام لماما.")
