@@ -19,31 +19,26 @@ def save_movies(movies):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(movies, f, ensure_ascii=False, indent=4)
 
-# --- 2. المحرك الخارق (تخطي الحماية) ---
-def scrape_cimanow():
-    # جربنا نسحب من الرابط المباشر للأفلام أضمن
-    url = "https://cimanow.cc/category/%d8%a7%d9%81%d9%84%d8%a7%d9%85-%d8%b9%d8%b1%d8%a8%d9%8a%d8%a9/"
-    
-    # هوية كاملة لمتصفح حقيقي (عشان نتفادى 403)
+# --- 2. محرك وي سيما (WeCima Engine) ---
+def scrape_wecima():
+    # رابط الأفلام المضافة حديثاً في وي سيما
+    url = "https://wecima.show/category/%d8%a7%d9%81%d9%84%d8%a7%d9%85/"
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8',
-        'Referer': 'https://www.google.com/'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     }
     
     try:
-        session = requests.Session()
-        response = session.get(url, headers=headers, timeout=30)
-        
-        if response.status_code == 403:
-            return "للأسف الموقع لسه قافل الباب (403). تحبي نجرب نسحب من موقع 'وي سيما'؟"
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code != 200:
+            return f"حتى وي سيما رفض! كود الخطأ: {response.status_code}"
             
         soup = BeautifulSoup(response.text, 'html.parser')
-        items = soup.find_all('div', class_='BoxItem')
+        
+        # في وي سيما الأفلام بتكون جوه كلاس اسمه 'GridItem'
+        items = soup.find_all('div', class_='GridItem')
         
         if not items:
-            return "الموقع فتح بس مفيش أفلام ظاهرة. ممكن شكل الصفحة اتغير."
+            return "الموقع فتح بس مفيش أفلام ظاهرة. ممكن الرابط اتغير."
 
         current_movies = load_movies()
         existing_titles = [m['title'] for m in current_movies]
@@ -51,9 +46,18 @@ def scrape_cimanow():
 
         for item in items:
             try:
-                title = item.find('h2').text.strip()
-                img_tag = item.find('img')
-                poster = img_tag.get('data-src') or img_tag.get('src')
+                # استخراج العنوان
+                title = item.find('strong').text.strip()
+                
+                # استخراج البوستر (وي سيما بيستخدم style background-image أحياناً أو img)
+                img_tag = item.find('span', class_='img')
+                if img_tag and 'style' in img_tag.attrs:
+                    style = img_tag['style']
+                    poster = style.split('url(')[1].split(')')[0].replace("'", "").replace('"', "")
+                else:
+                    poster = item.find('img')['data-src'] if item.find('img').has_attr('data-src') else item.find('img')['src']
+                
+                # استخراج الرابط
                 link = item.find('a')['href']
                 
                 if title not in existing_titles:
@@ -68,15 +72,15 @@ def scrape_cimanow():
 
 # --- 3. الواجهة ---
 st.set_page_config(page_title="Salma Flix", layout="wide")
-st.markdown("<h1 style='text-align: center; color: #E50914;'>SALMA FLIX</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #E50914;'>SALMA FLIX (WeCima)</h1>", unsafe_allow_html=True)
 
 search_query = st.text_input("🔍 ابحثي عن فيلم يا ماما...", placeholder="اكتبي اسم الفيلم هنا")
 
-if st.button("تحديث الأفلام من الموقع الآن 🚀"):
-    with st.spinner("جاري محاولة التسلل للموقع..."):
-        result = scrape_cimanow()
+if st.button("تحديث الأفلام من WeCima الآن 🚀"):
+    with st.spinner("جاري جلب الأفلام من وي سيما..."):
+        result = scrape_wecima()
         if isinstance(result, int):
-            st.success(f"نجحنا! تم إضافة {result} فيلم.")
+            st.success(f"تم! أضفنا {result} فيلم جديد من وي سيما.")
             st.rerun()
         else:
             st.error(result)
@@ -94,4 +98,4 @@ if movies:
             st.write(f"**{m['title']}**")
             st.link_button("مشاهدة 🍿", m['url'])
 else:
-    st.info("الموقع لسه فاضي. دوسي على الزرار فوق عشان نسحب الأفلام.")
+    st.info("الموقع فاضي. دوسي 'تحديث' عشان نسحب من وي سيما!")
