@@ -1,53 +1,90 @@
 import streamlit as st
 import requests
 
-# --- 1. الإعدادات ---
-# مفتاح API عالمي للأفلام (قانوني تماماً)
+# --- 1. الإعدادات الأساسية (قانونية وآمنة) ---
 API_KEY = "15d12a66d39113a797e50a451064731a"
 IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
 # --- 2. واجهة المستخدم ---
 st.set_page_config(page_title="Salma Private Space", layout="wide")
-st.markdown("<h1 style='text-align: center; color: #E50914;'>🎬 SALMA PRIVATE</h1>", unsafe_allow_html=True)
 
-# --- 3. محرك جلب الأفلام (قانوني 100%) ---
-def get_popular_arabic_movies():
-    # بنجيب قائمة الأفلام العربية التريند حالياً
-    url = f"https://api.themoviedb.org/3/discover/movie?api_key={API_KEY}&language=ar&region=EG&sort_by=popularity.desc&with_original_language=ar"
+# تصميم العنوان بشكل شيك
+st.markdown("""
+    <style>
+    .main-title {
+        text-align: center;
+        color: #E50914;
+        font-size: 50px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .sub-title {
+        text-align: center;
+        color: #555;
+        font-size: 20px;
+        margin-bottom: 30px;
+    }
+    </style>
+    <div class="main-title">🎬 SALMA FLIX</div>
+    <div class="sub-title">أهلاً يا ماما! أحدث الأفلام العالمية والعربية بين يديكِ</div>
+    """, unsafe_allow_html=True)
+
+# --- 3. وظائف جلب البيانات ---
+def get_movies(query=None):
+    if query:
+        # بحث عن فيلم معين
+        url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&language=ar&query={query}"
+    else:
+        # عرض الأفلام العربية التريند حالياً
+        url = f"https://api.themoviedb.org/3/discover/movie?api_key={API_KEY}&language=ar&region=EG&sort_by=popularity.desc&with_original_language=ar"
+    
     try:
-        res = requests.get(url, timeout=10)
+        res = requests.get(url, timeout=15)
         return res.json().get('results', [])
     except:
         return []
 
-# --- 4. العرض والبحث ---
-search_query = st.text_input("🔍 ابحثي عن فيلم يا ماما...", placeholder="اكتبي اسم الفيلم هنا")
+# --- 4. محرك البحث والعرض ---
+search_query = st.text_input("🔍 ابحثي عن فيلم يا ماما...", placeholder="اكتبي اسم الفيلم هنا (مثلاً: ولاد رزق)")
 
-if search_query:
-    search_url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&language=ar&query={search_query}"
-    movies = requests.get(search_url).json().get('results', [])
-else:
-    movies = get_popular_arabic_movies()
+# جلب القائمة بناءً على البحث أو الأفلام المقترحة
+movies_list = get_movies(search_query if search_query else None)
 
-if movies:
+if movies_list:
+    st.write(f"### تم العثور على {len(movies_list)} فيلم")
+    
+    # توزيع الأفلام في أعمدة (4 أفلام في كل صف)
     cols = st.columns(4)
-    for idx, m in enumerate(movies[:16]): # بنعرض أول 16 فيلم بس عشان السرعة
+    for idx, m in enumerate(movies_list[:20]): # نعرض أول 20 نتيجة
         if m.get('poster_path'):
             with cols[idx % 4]:
+                # عرض البوستر
                 st.image(f"{IMAGE_BASE}{m['poster_path']}", use_container_width=True)
+                # العنوان
                 st.write(f"**{m['title']}**")
+                # سنة الإنتاج والتقييم
+                year = m.get('release_date', 'غير معروف')[:4]
+                st.caption(f"📅 {year} | ⭐ {m.get('vote_average', 0)}")
                 
-                # السر هنا: بنفتح رابط بحث ذكي لماما يوصلها للفيلم "برا" الموقع
-                movie_name = m['title'].replace(" ", "+")
-                watch_link = f"https://vidsrc.me/embed/movie?tmdb={m['id']}" # ده مشغل عالمي مخفي
+                # رابط المشاهدة المباشر (باستخدام ID الفيلم)
+                # الرابط ده بيفتح مشغل (Player) عالمي مخفي
+                tmdb_id = m['id']
+                watch_link = f"https://vidsrc.me/embed/movie?tmdb={tmdb_id}"
                 
-                # زرار المشاهدة "المخفي"
-                st.link_button("بوابة المشاهدة 🍿", watch_link)
+                st.link_button("مشاهدة الآن 🍿", watch_link)
 else:
-    st.info("اكتبي اسم الفيلم اللي ماما عايزاه فوق!")
+    if search_query:
+        st.warning("للأسف مش لاقيين الفيلم ده، جربي اسم تاني.")
+    else:
+        st.info("جاري تحميل أحدث الأفلام... تأكدي من الإنترنت.")
 
-st.sidebar.markdown("### تعليمات سلمى 🤫")
-st.sidebar.write("يا ماما، لما تدوسي على 'بوابة المشاهدة' هيفتح لك مشغل الفيلم. لو طلع لك إعلان، اقفليه وارجعي للفيلم.")
-# لمسة جمالية
-st.divider()
-st.markdown("<p style='text-align: center;'>صنع بكل حب بواسطة سلمى ❤️</p>", unsafe_allow_html=True)
+# --- 5. ركن التعليمات في الجنب ---
+st.sidebar.title("تعليمات الاستخدام ❤️")
+st.sidebar.success("""
+1. اختاري الفيلم اللي تحبيه.
+2. دوسي على زرار 'مشاهدة الآن'.
+3. هيفتح لك صفحة فيها مشغل الفيديو.
+4. لو ظهر إعلان، اقفليه فوراً وارجعي دوسي Play.
+""")
+st.sidebar.markdown("---")
+st.sidebar.write("صنع بكل حب بواسطة **سلمى** 👩‍💻")
