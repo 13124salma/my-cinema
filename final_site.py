@@ -70,3 +70,14 @@ for idx, m in enumerate(movies):
 # --- 4. رسالة الأمان لسلمى ---
 st.sidebar.markdown("### 🤫 نصيحة هندسية")
 st.sidebar.info("يا سلمى، إحنا كدة بنستخدم جوجل كـ 'درع'. المتصفح هو اللي بيفتح الموقع، مش كود بايثون، فـ Streamlit مش هيقدر يبعت إنذارات تانية!")
+# التعديل البسيط في جزء الـ Loop بتاع الأفلام:
+for idx, m in enumerate(movies):
+    with cols[idx % 4]:
+        st.image(m['poster'], use_container_width=True)
+        st.write(f"**{m['title']}**")
+        
+        # التعديل هنا: بنشيل &btnI عشان جوجل ما يطلعش تحذير
+        # ونخلي البحث محدد أكتر عشان أول نتيجة تكون هي الفيلم
+        direct_watch = f"https://www.google.com/search?q={m['search_term']}+full+movie" 
+        
+        st.link_button("اضغطي للمشاهدة 🍿", direct_watch)
