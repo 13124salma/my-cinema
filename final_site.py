@@ -1,83 +1,87 @@
 import streamlit as st
+import requests
+from bs4 import BeautifulSoup
+import json
+import os
 
-# --- 1. تصميم الواجهة (شغل فنادق!) ---
-st.set_page_config(page_title="Salma Flix", layout="wide")
+# --- 1. إعدادات التخفي (The Stealth Config) ---
+# بنخلي الكود يقول للموقع: "أنا مش برنامج، أنا شخص فاتح من كروم في ويندوز"
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8',
+    'Referer': 'https://www.google.com/' # بنضحك عليهم ونقولهم إننا جايين من جوجل
+}
 
-st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117; color: white; }
-    h1 { color: #E50914; text-align: center; font-family: 'Arial'; }
-    .movie-card { border: 1px solid #333; border-radius: 10px; padding: 10px; text-align: center; }
-    </style>
-    """, unsafe_allow_html=True)
+DB_FILE = "movies_cache.json"
 
-st.markdown("<h1>🎬 SALMA FLIX</h1>", unsafe_allow_html=True)
-st.write("<p style='text-align: center;'>مرحباً يا ماما! أحدث الأفلام والمسلسلات جاهزة للمشاهدة</p>", unsafe_allow_html=True)
+def load_cache():
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r", encoding="utf-8") as f: return json.load(f)
+    return []
 
-# --- 2. قاعدة بيانات الأفلام (محدثة وشغالة في الإمارات) ---
-# دي أفلام "مضمونة" وروابطها من مواقع بتفتح بسهولة
-def get_ready_movies():
-    return [
-        {
-            "title": "ولاد رزق 3: القاضية",
-            "poster": "https://pbs.twimg.com/media/GPvH6oBX0AAnK-J.jpg",
-            "search_term": "مشاهدة+فيلم+ولاد+رزق+3+وي+سيما"
-        },
-        {
-            "title": "اللعب مع العيال",
-            "poster": "https://www.elcinema.com/photo/2082269/400/600",
-            "search_term": "مشاهدة+فيلم+اللعب+مع+العيال+وي+سيما"
-        },
-        {
-            "title": "عصابة المكس",
-            "poster": "https://media.filfan.com/NewsPics/FilfanNew/large/349479_0.png",
-            "search_term": "مشاهدة+فيلم+عصابة+المكس+وي+سيما"
-        },
-        {
-            "title": "فاصل من اللحظات اللذيذة",
-            "poster": "https://media.linkonlineworld.com/elcinema/Movie/2081514/400/600",
-            "search_term": "مشاهدة+فيلم+فاصل+من+اللحظات+اللذيذة+وي+سيما"
-        }
-    ]
+def save_cache(data):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 3. محرك البحث الذكي (الهروب من الحجب) ---
-search_query = st.text_input("🔍 ابحثي عن أي فيلم آخر يا ماما...", placeholder="اكتبي اسم الفيلم هنا")
-
-# عرض الأفلام الجاهزة
-st.write("### 🔥 أفلام مقترحة لكِ يا ماما:")
-movies = get_ready_movies()
-
-# إذا كان هناك بحث، نغير رابط المشاهدة ليناسب البحث
-if search_query:
-    st.write(f"نتائج البحث عن: {search_query}")
-    # رابط بحث "مخفي" يفتح جوجل مباشرة على نتائج المشاهدة
-    search_link = f"https://www.google.com/search?q=مشاهدة+فيلم+{search_query.replace(' ', '+')}+اون+لاين"
-    st.link_button(f"اضغطي هنا لمشاهدة {search_query} فوراً 🚀", search_link)
-    st.divider()
-
-# عرض شبكة الأفلام
-cols = st.columns(4)
-for idx, m in enumerate(movies):
-    with cols[idx % 4]:
-        st.image(m['poster'], use_container_width=True)
-        st.write(f"**{m['title']}**")
+# --- 2. محرك السحب المتخفي (The Stealth Scraper) ---
+def fetch_movies():
+    # استخدمنا رابط "سيما لايت" النسخة المستقرة
+    url = "https://cimalight.io/category/%d8%a7%d9%81%d9%84%d8%a7%d9%85-%d8%b9%d8%b1%d8%a8%d9%8a%d8%a9-arabic-movies/"
+    try:
+        # verify=False عشان لو فيه مشاكل في شهادة الأمان ما يقفش
+        response = requests.get(url, headers=HEADERS, timeout=20, verify=False)
+        soup = BeautifulSoup(response.text, 'html.parser')
         
-        # الزرار السحري: بيفتح بحث جوجل "مباشرة" على روابط المشاهدة
-        # ده بيخلينا نهرب من إنذار الـ Piracy بتاع Streamlit
-        direct_watch = f"https://www.google.com/search?q={m['search_term']}&btnI" 
-        st.link_button("مشاهدة الآن 🍿", direct_watch)
+        # بنور على الكلاسات اللي شايلة الأفلام
+        items = soup.find_all('div', class_='BoxItem')
+        
+        movies = []
+        for item in items:
+            try:
+                title = item.find('h2').text.strip()
+                link = item.find('a')['href']
+                # سحب البوستر بذكاء (عشان الـ Lazy Load)
+                img = item.find('img')
+                poster = img.get('data-src') or img.get('src')
+                
+                if title and link and poster:
+                    movies.append({"title": title, "poster": poster, "url": link})
+            except: continue
+            
+        if movies:
+            save_cache(movies)
+            return movies
+        return load_cache()
+    except:
+        return load_cache()
 
-# --- 4. رسالة الأمان لسلمى ---
-st.sidebar.markdown("### 🤫 نصيحة هندسية")
-st.sidebar.info("يا سلمى، إحنا كدة بنستخدم جوجل كـ 'درع'. المتصفح هو اللي بيفتح الموقع، مش كود بايثون، فـ Streamlit مش هيقدر يبعت إنذارات تانية!")
-# التعديل البسيط في جزء الـ Loop بتاع الأفلام:
-for idx, m in enumerate(movies):
-    with cols[idx % 4]:
-        st.image(m['poster'], use_container_width=True)
-        st.write(f"**{m['title']}**")
-        
-        # التعديل هنا: بنشيل &btnI عشان جوجل ما يطلعش تحذير
-        # ونخلي البحث محدد أكتر عشان أول نتيجة تكون هي الفيلم
-        direct_watch = f"https://www.google.com/search?q={m['search_term']}+full+movie" 
-        
-        st.link_button("اضغطي للمشاهدة 🍿", direct_watch)
+# --- 3. واجهة المستخدم (فخامة تليق بماما) ---
+st.set_page_config(page_title="Salma Flix Pro", layout="wide")
+st.markdown("<h1 style='text-align: center; color: #E50914;'>🎬 SALMA FLIX</h1>", unsafe_allow_html=True)
+
+# زرار التحديث "السري"
+if st.button("تحديث المكتبة 🔄"):
+    with st.spinner("جاري سحب أحدث الأفلام بتخفي..."):
+        fetch_movies()
+        st.rerun()
+
+# عرض الأفلام
+movies_list = load_cache()
+if not movies_list:
+    movies_list = fetch_movies() # لو أول مرة يفتح
+
+if movies_list:
+    cols = st.columns(4)
+    for idx, m in enumerate(movies_list):
+        with cols[idx % 4]:
+            # عرض البوستر مباشرة جوه موقعك
+            st.image(m['poster'], use_container_width=True)
+            st.write(f"**{m['title']}**")
+            # الزرار ده بيفتح رابط الفيلم "مباشرة" مش بحث جوجل
+            st.link_button("مشاهدة الآن 🍿", m['url'])
+else:
+    st.error("الموقع مش عارف يسحب دلوقتي، جربي تدوسي تحديث كمان دقيقة.")
+
+st.sidebar.markdown("---")
+st.sidebar.write("👩‍💻 تم التطوير بتخفي كامل بواسطة **سلمى**")
