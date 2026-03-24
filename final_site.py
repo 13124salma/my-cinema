@@ -32,11 +32,10 @@ def scrape_wecima_flexible():
         soup = BeautifulSoup(response.text, 'html.parser')
         
         # التكتيك الجديد: بندور على أي Div واخد شكل كارت فيلم
-        # جربنا نستخدم Selector أعم (أي حاجة فيها لينك وصورة وعنوان)
         items = soup.select('.GridItem') or soup.select('.Thumb--GridItem') or soup.select('[class*="Item"]')
         
         if not items:
-            return "الموقع فاتح بس الـ Tags اتغيرت فعلاً. جاري تجربة البحث عن الروابط مباشرة..."
+            return "الموقع فاتح بس الـ Tags اتغيرت فعلاً."
 
         current_movies = load_movies()
         existing_titles = [m['title'] for m in current_movies]
@@ -44,20 +43,15 @@ def scrape_wecima_flexible():
 
         for item in items:
             try:
-                # محاولة صيد العنوان (أي نص تقيل)
                 title_tag = item.find('strong') or item.find('h2') or item.find('span', class_='title')
                 title = title_tag.text.strip()
-                
-                # صيد الرابط
                 link = item.find('a')['href']
                 
-                # صيد الصورة (بندور في كل الخانات الممكنة)
                 img = item.find('img')
                 poster = ""
                 if img:
                     poster = img.get('data-src') or img.get('data-lazy-src') or img.get('src')
                 
-                # لو لسه مفيش صورة، بنبص في الـ Background style
                 if not poster or "data:image" in poster:
                     style_tag = item.find('span', style=True)
                     if style_tag and 'url(' in style_tag['style']:
@@ -79,7 +73,6 @@ st.markdown("<h1 style='text-align: center; color: #E50914;'>SALMA FLIX</h1>", u
 
 search_query = st.text_input("🔍 ابحثي عن فيلم يا ماما...", placeholder="اكتبي اسم الفيلم هنا")
 
-# أزرار التحكم
 col1, col2 = st.columns(2)
 with col1:
     if st.button("تحديث الأفلام من WeCima 🚀"):
@@ -93,7 +86,7 @@ with col1:
 with col2:
     if st.button("مسح كل الأفلام 🗑️"):
         save_movies([])
-        st.warning("تم مسح القائمة، ابدأي تحديث من جديد.")
+        st.warning("تم مسح القائمة.")
         st.rerun()
 
 # --- 4. العرض ---
@@ -105,10 +98,9 @@ if movies:
     cols = st.columns(4)
     for idx, m in enumerate(reversed(movies)):
         with cols[idx % 4]:
-            # تأكدي إن الصورة مش فاضية
             if m['poster']:
                 st.image(m['poster'], use_container_width=True)
             st.write(f"**{m['title']}**")
             st.link_button("مشاهدة 🍿", m['url'])
 else:
-    st.info("الم
+    st.info("الموقع فاضي حالياً. دوسي على 'تحديث' عشان نسحب الأفلام لماما.")
