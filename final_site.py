@@ -113,3 +113,12 @@ elif page == L["ai"]:
 else:
     st.title(L["title"])
     st.write("Welcome to your private theater.")
+   # تأكدي إن السطر ده مش تحت "if" ولا جواه مسافات زيادة (Indentation)
+if st.button("تحديث الأفلام تلقائياً من CimaNow 🚀"):
+    with st.spinner("جاري جمع أحدث الأفلام..."):
+        result = scrape_cimanow()
+        if isinstance(result, int):
+            st.success(f"تم! أضفنا {result} فيلم جديد.")
+            st.rerun()
+        else:
+            st.error(result) 
